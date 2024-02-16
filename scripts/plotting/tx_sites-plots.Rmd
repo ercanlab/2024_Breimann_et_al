@@ -1,0 +1,413 @@
+---
+title: "Tx_analysis"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include = FALSE} 
+#Load libraries
+library(ggplot2)
+library(purrr)
+library(tidyverse)
+library(beeswarm)
+library(readr)
+library(tidyr)
+library(Hmisc)
+library(plyr)
+library(RColorBrewer)
+library(reshape2)
+library(dplyr)
+library(stringr)
+library(reshape2)
+library(ggthemes)
+library(pander)
+library(ggpubr)
+```
+
+## Make plotting themes
+```{r}
+man_fill <- scale_fill_manual(values = c("N2" = "#FCE85C", 
+                                         "CB428" = "#44A49C",
+                                         "RNAi_ama1" = "#CB297B",
+                                         "RNAi_dpy27" = "#57A56F", 
+                                         "RNAi_sdc2" = "#FF9300", 
+                                         "SEA-12" = "#EE220C", 
+                                         "NA" = "#A9A9A9",
+                                         "RNAi_rluc" = "#A9A9A9" ,
+                                         "RNAi_rlac" = "#A9A9A9",                                
+                                         "RNAi" = "#A9A9A9"  ))
+  
+  
+man_color <-     scale_color_manual(values = c("N2" = "#FCE85C", 
+                                         "CB428" = "#44A49C",
+                                         "RNAi_ama1" = "#CB297B",
+                                         "RNAi_dpy27" = "#57A56F", 
+                                         "RNAi_sdc2" = "#FF9300", 
+                                         "SEA-12" = "#EE220C", 
+                                         "NA" = "#A9A9A9",
+                                         "RNAi_rluc" = "#A9A9A9" ,
+                                         "RNAi_rlac" = "#A9A9A9",                                
+                                         "RNAi" = "#A9A9A9"))
+```
+
+#Functions
+```{r}
+
+n_fun <- function(x){
+  return(data.frame(y = 0.95*30,
+                    label = length(x)))
+}
+```
+
+#Import the data
+###-Read the CSV file
+```{r, include=FALSE}
+smFISH <- read_csv("/Users/lbreima/Documents/PhD_local/smFISH_analysis/191213_tx_counts_from_exon/master_with_more_columns_threshold-3.csv")
+```
+
+###-Check that the column types are right
+```{r, echo = FALSE}
+spec(smFISH)
+```
+
+###-Report problems
+```{r, echo = FALSE}
+problems(smFISH)
+```
+
+###-Make a new colum for the strain name and plot unique strain names
+```{r, echo = FALSE}
+new_smfish <- smFISH %>%
+  mutate(strain = gsub("(.+)\\_.+","\\1",`filename`))
+
+unique(new_smfish$strain, incomparables = FALSE)
+```
+
+###-Remove the # from the smFISH counts (because I couldnt plot with them?!?)
+```{r, echo = FALSE}
+colnames(new_smfish)[colnames(new_smfish)=="#c0_smfish"] <- "c0_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="#c1_smfish"] <-  "c1_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="#c2_smfish"] <- "c2_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="#c0_smfish_adj"] <- "c0_smfish_adj"
+colnames(new_smfish)[colnames(new_smfish)=="#c1_smfish_adj"] <- "c1_smfish_adj"
+colnames(new_smfish)[colnames(new_smfish)=="#c2_smfish_adj"] <- "c2_smfish_adj"
+colnames(new_smfish)[colnames(new_smfish)=="#nuclei"] <- "manual_nuclei"
+colnames(new_smfish)[colnames(new_smfish)=="#nucs_predicted"] <- "nucs_predicted"
+colnames(new_smfish)[colnames(new_smfish)=="X.c0_smfish"] <- "c0_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="X.c1_smfish"] <-  "c1_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="X.c2_smfish"] <-"c2_smfish"
+colnames(new_smfish)[colnames(new_smfish)=="X.nuclei"] <- "manual_nuclei"
+colnames(new_smfish)[colnames(new_smfish)=="X.nucs_predicted"] <-  "nucs_predicted"
+colnames(new_smfish)[colnames(new_smfish)==" X.channels"] <- "channels"
+colnames(new_smfish)[colnames(new_smfish)=="X.c0_smfish_adj"] <- "c0_smfish_adj"
+colnames(new_smfish)[colnames(new_smfish)=="X.c1_smfish_adj"] <- "c1_smfish_adj"
+colnames(new_smfish)[colnames(new_smfish)=="X.c2_smfish_adj"] <- "c2_smfish_adj"
+```
+
+###-Make a new colum with the date of the experiment
+```{r, echo = FALSE}
+colnames(new_smfish)[colnames(new_smfish)=="original.filename"] <- "original_filename"
+
+new_new_smfish <- new_smfish %>%
+     mutate(exp.date = gsub("(.?)\\_.+","\\1",original_filename))
+```
+
+# Change some emrbyo stages by hand that got wrong label
+```{r}
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] == "RNAi_dpy27_1155_cropped_5104.tif"] <- 5
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] == "N2_293_cropped_728.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] == "N2_362_cropped_1251.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="SEA-12_324_cropped_166.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="RNAi_dpy27_3741_cropped_0.tif"] <- 2
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="RNAi_dpy27_3743_cropped_1.tif"] <- 0
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3684_cropped_0.tif"] <- 3
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3690_cropped_0.tif"] <- 2
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3709_cropped_0.tif"] <- 2
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3596_cropped_0.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3601_cropped_0.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3609_cropped_0.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3668_cropped_0.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3684_cropped_1.tif"] <- 1
+new_new_smfish[,'predicted_bin'][new_new_smfish[,'cropped_image_file'] =="N2_3708_cropped_0.tif"] <- 1
+
+```
+
+# Filter broken embryos
+```{r}
+
+new_new_smfish<-new_new_smfish[!(new_new_smfish$cropped_image_file=="RNAi_dpy27_1761_cropped_6375.tif" 
+                      | new_new_smfish$cropped_image_file=="RNAi_dpy27_1167_cropped_5125.tif"
+                      | new_new_smfish$cropped_image_file=="RNAi_dpy27_398_cropped_2898.tif"
+                      | new_new_smfish$cropped_image_file=="RNAi_dpy27_485_cropped_3037.tif"
+                      | new_new_smfish$cropped_image_file=="RNAi_dpy27_1790_cropped_6660.tif"
+                      | new_new_smfish$cropped_image_file=="RNAi_sdc2_1302_cropped_5665.tif"
+                       | new_new_smfish$cropped_image_file=="N2_1541_cropped_2243.tif"
+                       | new_new_smfish$cropped_image_file=="N2_1266_cropped_2385.tif"
+                      | new_new_smfish$cropped_image_file== "N2_1025_cropped_3847.tif"
+                     | new_new_smfish$cropped_image_file==  "N2_1025_cropped_3846.tif"
+                     | new_new_smfish$cropped_image_file==  "RNAi_sdc2_1311_cropped_5675.tif"
+                      | new_new_smfish$cropped_image_file==  "RNAi_dpy27_405_cropped_2905.tif" 
+                      ),]
+```
+
+### Combine stages from predicted_bin and stage_bin
+```{r}
+new_new_smfish$stage_bin <- replace(new_new_smfish$stage_bin, which(new_new_smfish$stage_bin < 0), NA)
+new_new_smfish$predicted_bin <- replace(new_new_smfish$predicted_bin, which(new_new_smfish$predicted_bin < 0), NA)
+
+new_new_smfish <- new_new_smfish %>% mutate(combined_stage = coalesce(stage_bin,predicted_bin))
+```
+
+###-Make a new colum with stage classification
+```{r, echo = FALSE}
+new_new_smfish <- new_new_smfish %>%
+     mutate(stage.class = ifelse( combined_stage==0, "1-4", 
+                            ifelse ( combined_stage==1, "5-49", 
+                              ifelse ( combined_stage==2, "50-99",
+                                ifelse ( combined_stage==3, "100-149",  
+                                  ifelse ( combined_stage==4, "150-534",        
+                                    ifelse ( combined_stage==5, "535-558",NA )))))))
+                                      
+
+new_new_smfish <- new_new_smfish %>%
+     mutate(prediction = ifelse( combined_stage==0, 2, 
+                          ifelse ( combined_stage==1, 27, 
+                            ifelse ( combined_stage==2, 70,
+                              ifelse ( combined_stage==3, 125,  
+                                ifelse ( combined_stage==4, 246,        
+                                  ifelse ( combined_stage==5, 547, NA )))))))
+```
+
+## Make a table were all smFISH counts are in one column
+```{r}
+# tx_count_adj is the number of transcripts at the transcription site
+# tx_count is the number of transcription sites per embryo
+
+c0 <-select(new_new_smfish, c0_smfish,c0_smfish_adj, c0_type, channel_1_counts, sum_of_intensity_1, filename:status, cropped_image_file, is_dapi_stack:is_valid_final,is_male_batch:num_z_planes, stage_bin, predicted_bin,stage.class ,prediction, strain )
+
+c1 <-select(new_new_smfish, c1_smfish,c1_smfish_adj, c1_type, channel_2_counts, sum_of_intensity_2, filename:status, cropped_image_file, is_dapi_stack:is_valid_final,is_male_batch:num_z_planes, stage_bin,predicted_bin, stage.class, prediction ,strain )
+
+c2 <-select(new_new_smfish, c2_smfish,c2_smfish_adj, c2_type, channel_3_counts, sum_of_intensity_3, filename:status, cropped_image_file, is_dapi_stack:is_valid_final,is_male_batch:num_z_planes, stage_bin,predicted_bin, stage.class, prediction ,strain )
+
+colnames(c0)[colnames(c0)=="c0_smfish"] <- "smfish_count"
+colnames(c0)[colnames(c0)=="c0_smfish_adj"] <- "smfish_count_adj"
+colnames(c0)[colnames(c0)=="channel_1_counts"] <- "tx_count"
+colnames(c0)[colnames(c0)=="sum_of_intensity_1"] <- "tx_count_adj"
+
+colnames(c1)[colnames(c1)=="c1_smfish"] <- "smfish_count"
+colnames(c1)[colnames(c1)=="c1_smfish_adj"] <- "smfish_count_adj"
+colnames(c1)[colnames(c1)=="channel_2_counts"] <- "tx_count"
+colnames(c1)[colnames(c1)=="sum_of_intensity_2"] <- "tx_count_adj"
+
+colnames(c2)[colnames(c2)=="c2_smfish"] <- "smfish_count"
+colnames(c2)[colnames(c2)=="c2_smfish_adj"] <- "smfish_count_adj"
+colnames(c2)[colnames(c2)=="channel_3_counts"] <- "tx_count"
+colnames(c2)[colnames(c2)=="sum_of_intensity_3"] <- "tx_count_adj"
+
+colnames(c0)[colnames(c0)=="c0_type"] <- "gene"
+colnames(c1)[colnames(c1)=="c1_type"] <- "gene"
+colnames(c2)[colnames(c2)=="c2_type"] <- "gene"
+
+allgenes <- bind_rows(c0, c1)
+allgenes <- bind_rows(allgenes, c2)
+```
+
+Make collumn for transcripts per TSS
+```{r}
+allgenes <- allgenes %>%
+     mutate(ave_tx_int =  tx_count_adj/tx_count)
+```
+
+# Filters
+```{r}
+allgenes_true_counts <- filter(allgenes,  status ==1, prediction != "NA", is_valid_final !=0, is_male_batch !=1, is_z_cropped != 1, num_z_planes >60 ,  tx_count <1116 , tx_count >0 )
+
+
+strain.names <- unique(allgenes_true_counts$strain)
+gene.names <- unique(allgenes_true_counts$gene)
+
+allgenes_length <- ddply(.data=allgenes_true_counts, 
+                  .(strain, gene),
+                 summarise, 
+                 n=paste(length(tx_count)))
+
+
+allgenes_true_counts$strain <- factor(allgenes_true_counts$strain, levels =c("N2", "RNAi_dpy27", "MK4", "CB428", "RNAi_set1", "RNAi_set4" , "RNAi_sdc2", "RNAi_ama1", "SEA-12", "RNAi_rluc", "RNAi_rlac", "RNAi", "RNAi-pop1"))
+
+allgenes_true_counts$stage.class <- factor(allgenes_true_counts$stage.class, levels =c("1-4", "5-49", "50-99", "100-149", "150-534", "535-558"))
+
+```
+
+# Check some specfific data points
+```{r}
+young_embryos_too_high <- filter(allgenes_true_counts, stage.class == "1-4", tx_count > 8)
+
+allgenes_true_counts$multi_tx <- allgenes_true_counts$tx_count_adj / allgenes_true_counts$prediction
+```
+
+# Dotplot for DPY-27
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+    ggdotplot(x= "stage.class", 
+              y = "tx_count",
+              add = c("boxplot","jitter"),
+              add.params = list(width = 0.5),
+              color = "strain",
+              fill ="strain",
+              error.plot = "crossbar",
+              stackdir = "center",
+              stackratio = 0.2,
+              size = 0.5)+
+          man_fill +
+          man_color +
+          labs(x = "binned nuclei") +
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+             vjust = 3,
+               position = position_dodge(0.7)) +
+    
+  scale_y_continuous(sec.axis = dup_axis(label = NULL, 
+                                       name = NULL),
+                    expand = expand_scale(mult = c(0.1, 0)),
+             breaks = pretty(c(0,100), n = 5), 
+                      limits = c(0,40))+
+          ggtitle('Number of transcription sites per embryo, gene:',paste(k))
+               }
+
+s <- allgenes_true_counts %>%
+  filter(strain== "N2" | strain== "RNAi_dpy27" )
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_tx_sites_dpy27.pdf"), scale = 1)
+    print(hist2)
+  }
+```
+
+
+# Dotplot for DPY-27 transcripts
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+    ggdotplot(x= "stage.class", 
+              y = "tx_count_adj",
+              add = c("boxplot","jitter"),
+              add.params = list(width = 0.5),
+              color = "strain",
+              fill ="strain",
+              error.plot = "crossbar",
+              stackdir = "center",
+              stackratio = 0.2,
+              size = 0.5)+
+          man_fill +
+          man_color +
+          labs(x = "binned nuclei") +
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+             vjust = 3,
+               position = position_dodge(0.7)) +
+  #expand_limits(y = 0) +
+  scale_y_continuous(sec.axis = dup_axis(label = NULL, 
+                                       name = NULL),
+                    expand = expand_scale(mult = c(0.1, 0)),
+             breaks = pretty(c(0,150), n = 5), 
+                      limits = c(0,150))+
+          ggtitle('Number of nascent transcripts per emrbyo, gene:',paste(k))
+               }
+
+s <- allgenes_true_counts %>%
+  filter(strain== "N2" | strain== "RNAi_dpy27" )
+
+ 
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_txs_dpy27.pdf"), scale = 1)
+    print(hist2)
+  }
+```
+
+##Dotplot for DPY-27 transcripts per TSS
+```{r}
+
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+    ggdotplot(x= "stage.class", 
+              y = "ave_tx_int",
+              add = c("boxplot","jitter"),
+              add.params = list(width = 0.5),
+              color = "strain",
+              fill ="strain",
+              error.plot = "crossbar",
+              stackdir = "center",
+              stackratio = 0.2,
+              binwidth = 0.5, 
+              size = 0.5)+
+          man_fill +
+          man_color +
+          labs(x = "binned nuclei") +
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+             vjust = 3,
+               position = position_dodge(0.7)) +
+  #expand_limits(y = 0) +
+  scale_y_continuous(sec.axis = dup_axis(label = NULL, 
+                                       name = NULL),
+                    expand = expand_scale(mult = c(0.1, 0)),
+             breaks = pretty(c(0,50), n = 5), 
+                      limits = c(0,50))+
+          ggtitle('Number of nascent transcripts per TSS, gene:',paste(k))
+               }
+
+s <- allgenes_true_counts %>%
+  filter(strain== "N2" | strain== "RNAi_dpy27" )
+
+ 
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_txs_2_dpy27.pdf"), scale = 1)
+    print(hist2)
+  }
+
+```
+
+
+

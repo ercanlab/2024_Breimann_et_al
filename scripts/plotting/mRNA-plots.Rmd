@@ -1,0 +1,412 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Prepare data for plotting
+```{r}
+
+allgenes_true_counts <- filter(allgenes,  status !=3, stage_class != "NA", is_valid_final !=0, is_male_batch !=1, num_z_planes >40, sat_pixel <1000, allgenes$smfish_count >=0 ,allgenes$smfish_count <6001, !is.na(gene) )
+
+
+strain.names <- unique(allgenes_true_counts$strain)
+gene.names <- unique(allgenes_true_counts$gene)
+
+
+allgenes_length <- ddply(.data=allgenes_true_counts, 
+                  .(strain, gene),
+                 summarise, 
+                 n=paste(length(smfish_count)))
+
+
+allgenes_true_counts$strain <- factor(allgenes_true_counts$strain, levels =c("N2", "RNAi_dpy27", "CB428" , "RNAi_sdc2", "RNAi_ama1", "SEA-12", "RNAi_rluc", "RNAi_rlac", "RNAi_ev"))
+
+allgenes_true_counts$stage_class <- factor(allgenes_true_counts$stage_class, levels =c("1-4", "5-30", "31-99", "100-149", "150-534", "535-558"))
+
+
+n_fun <- function(x){
+  return(data.frame(y = 0.01*30,
+                    label = length(x)))
+}
+
+ 
+```
+
+
+# Dotplot for just wild-type
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.5)+
+          man_fill +
+          man_color +
+    theme_minimal()+
+      scale_y_continuous(limits = c(0, 3500))+
+         labs(x = "", y = "") +
+    theme(text = element_text(size = 18)) +
+     theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+               }
+
+s <- allgenes_true_counts %>%
+  filter( strain== "RNAi_rluc"   )#| strain== "RNAi_rluc" | strain== "RNAi_rlac" | strain== "RNAi_ev"   strain== "N2" | | strain== "RNAi_rlac" |   strain== "N2" 
+
+  #| strain== "RNAi_rlac" | strain== "RNAi_ev"
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_dot_wt.pdf"), scale = 1, width=8, height=4, dpi=300)
+    print(hist2)
+  }
+```
+
+
+
+# Dotplot for DPY-27
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.5)+
+          man_fill +
+          man_color +
+         labs(x = "", y = "") +
+    theme(text = element_text(size = 18)) +
+     theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+               }
+
+
+s <- allgenes_true_counts %>%
+  filter(strain== "RNAi_dpy27" | strain== "RNAi_rluc" | strain== "RNAi_rlac" )
+
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_dot_dpy27.pdf"), scale = 1,  width=8, height=4, dpi=300)
+    print(hist2)
+  }
+
+
+```
+
+
+
+#T-test calculation
+```{r}
+bin0 <- filter(s, stage_class == "1-4", gene == "dpy27.ex")
+bin1 <- filter(s, stage_class == "5-30", gene == "dpy27.ex")
+bin2 <- filter(s, stage_class == "31-99", gene == "dpy27.ex")
+bin3 <- filter(s, stage_class == "100-149", gene == "dpy27.ex")
+bin4 <- filter(s, stage_class == "150-534", gene == "dpy27.ex")
+bin5 <- filter(s, stage_class == "535-558", gene == "dpy27.ex")
+
+
+t.test(smfish_count ~ strain, bin0)
+t.test(smfish_count ~ strain, bin1)
+t.test(smfish_count ~ strain, bin2)
+t.test(smfish_count ~ strain, bin3)
+t.test(smfish_count ~ strain, bin4)
+t.test(smfish_count ~ strain, bin5)
+```
+
+
+
+
+
+# Dotplot for  cb428 with wt
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.5)+
+          man_fill +
+          man_color +
+       labs(x = "", y = "") +
+    theme(text = element_text(size = 18)) +
+     theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+               }
+
+
+s <- allgenes_true_counts %>%
+  filter(strain== "N2" | strain== "CB428"   )
+#| strain== "RNAi_ev"
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+   ggsave(hist2, file = paste0(k, "_dot_cb428.pdf"), scale = 1,  width=8, height=4, dpi=300)
+    print(hist2)
+  }
+```
+
+
+# T-test
+```{r}
+bin0 <- filter(s, stage_class == "1-4", gene == "mdh1.ex")
+bin1 <- filter(s, stage_class == "5-30", gene == "mdh1.ex")
+bin2 <- filter(s, stage_class == "31-99", gene == "mdh1.ex")
+bin3 <- filter(s, stage_class == "100-149", gene == "mdh1.ex")
+bin4 <- filter(s, stage_class == "150-534", gene == "mdh1.ex")
+bin5 <- filter(s, stage_class == "535-558", gene == "mdh1.ex")
+
+
+t.test(smfish_count ~ strain, bin0)
+t.test(smfish_count ~ strain, bin1)
+t.test(smfish_count ~ strain, bin2)
+t.test(smfish_count ~ strain, bin3)
+t.test(smfish_count ~ strain, bin4)
+t.test(smfish_count ~ strain, bin5)
+```
+
+
+
+
+# Dotplot for DPY-27 vs sdc-2 KD
+```{r}
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.5)+
+          man_fill +
+          man_color +
+        labs(x = "", y = "") +
+    theme(text = element_text(size = 18)) +
+     theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+}
+
+
+
+s <- allgenes_true_counts %>%
+  filter(strain== "RNAi_sdc2" |strain== "RNAi_rluc" | strain== "RNAi_rlac"   )
+
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+   ggsave(hist2, file = paste0(k, "_dot_sdc2.pdf"), scale = 1,  width=8, height=4, dpi=300)
+    print(hist2)
+  }
+
+```
+
+
+
+# Dotplot for wt vs rex-1
+```{r}
+
+allgenes_true_counts_2 <- filter(allgenes_true_counts,  exp.date == "170530" | exp.date =="170528" | exp.date == "170601"| exp.date == "170420"| exp.date == "170524" | exp.date == "170522" | exp.date == "170523"  ) 
+
+
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.5)+
+          man_fill +
+          man_color +
+          labs(x = "", y = "") +
+        theme(text = element_text(size = 18)) +
+     theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+}
+
+
+s <- allgenes_true_counts_2 %>%
+  filter(strain== "N2" | strain== "SEA-12" )
+
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_dot_rex1.pdf"), scale = 1,  width=8, height=4, dpi=300)
+    print(hist2)
+  }
+```
+
+
+
+# T-test
+```{r}
+bin0 <- filter(s, stage_class == "1-4", gene == "dpy23.ex")
+bin1 <- filter(s, stage_class == "5-30", gene == "dpy23.ex")
+bin2 <- filter(s, stage_class == "31-99", gene == "dpy23.ex")
+bin3 <- filter(s, stage_class == "100-149", gene == "dpy23.ex")
+bin4 <- filter(s, stage_class == "150-534", gene == "dpy23.ex")
+bin5 <- filter(s, stage_class == "535-558", gene == "dpy23.ex")
+
+
+t.test(smfish_count ~ strain, bin0)
+t.test(smfish_count ~ strain, bin1)
+t.test(smfish_count ~ strain, bin2)
+t.test(smfish_count ~ strain, bin3)
+t.test(smfish_count ~ strain, bin4)
+t.test(smfish_count ~ strain, bin5)
+```
+
+
+
+
+# Dotplot for DPY-27 vs ama-1 KD
+```{r}
+
+func_dot = function(k,n) {
+  allgenes_filtered <- s %>%
+    filter(gene == k) %>%
+  ggboxplot(x= "stage_class", 
+              y = "smfish_count",
+              add.params = list(width = 0.7),
+              color = "strain",
+              #fill ="strain",
+              outlier.shape=NA,
+              size = 0.9)+
+          man_fill +
+          man_color +
+          labs(x = "", y = "") +
+    theme(text = element_text(size = 18)) +
+    theme(legend.position = "none") +  
+    stat_summary(fun.data = n_fun, geom = "text",
+               aes(group = strain),
+               hjust = 0.5 ,
+               color = "black",
+               vjust = 3,
+               position = position_dodge(0.7)) +
+     geom_jitter(mapping = aes(color = strain),  alpha = 0.6, position = position_jitterdodge(jitter.width=1.5))+
+          ggtitle(paste(k))
+}
+
+s <- allgenes_true_counts %>%
+  filter( strain== "RNAi_ama1" | strain== "RNAi_rluc" | strain== "RNAi_rlac"  | strain== "N2"  )
+ 
+strain.names <- unique(s$strain)
+gene.names <- unique(s$gene)
+ 
+ 
+  for (k in gene.names){
+                        n <- allgenes_length %>%
+                          filter(gene == k) %>%
+                          pull(n)
+    hist2 <- func_dot(k,n)
+    ggsave(hist2, file = paste0(k, "_dot_ama1_KO.pdf"), scale = 1,  width=8, height=4, dpi=300)
+    print(hist2)
+  }
+```
+
+
+# T-test
+```{r}
+  bin0 <- filter(s, stage_class == "1-4", gene == "mdh1.ex")
+  bin1 <- filter(s, stage_class == "5-30", gene == "mdh1.ex")
+  bin2 <- filter(s, stage_class == "31-99", gene == "mdh1.ex")
+  bin3 <- filter(s, stage_class == "100-149", gene == "mdh1.ex")
+  bin4 <- filter(s, stage_class == "150-534", gene == "mdh1.ex")
+  bin5 <- filter(s, stage_class == "535-558", gene == "mdh1.ex")
+  
+  
+  t.test(smfish_count ~ strain, bin0)
+  t.test(smfish_count ~ strain, bin1)
+  t.test(smfish_count ~ strain, bin2)
+  t.test(smfish_count ~ strain, bin3)
+  t.test(smfish_count ~ strain, bin4)
+  t.test(smfish_count ~ strain, bin5)
+```
+
+
+
+
+
+
