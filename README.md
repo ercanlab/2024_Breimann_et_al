@@ -65,7 +65,7 @@ Scripts to predict the stage: [Prediction of developmental stage](https://github
 
 ### 4. smFISH detection 
 
-Detection of single RNA spots in 3D was performed using the Fiji plugin [RS-FISH](https://github.com/PreibischLab/RS-FISH) (Bahry et al., 2022). For this, images were preprocessed by subtracting a duplicated and median filtered (sigma = 19) image from the raw image to increase single spots and smooth background signals [Median filter](). Spot detection was performed using RS-FISH (Bahry et al., 2022) with the following detection settings: -i0 0, -i1 65535, -a 0.650, -r 1, -s 1.09, -t 0.001, -sr 2, -ir 0.3, -e 0.5116, -it 33000, -bg 0. 
+Detection of single RNA spots in 3D was performed using the Fiji plugin [RS-FISH](https://github.com/PreibischLab/RS-FISH) (Bahry et al., 2022). For this, images were preprocessed by subtracting a duplicated and median filtered (sigma = 19) image from the raw image to increase single spots and smooth background signals [Median filter](https://github.com/PreibischLab/RS-FISH/blob/9f99b29e61ceba594b184a881c9fae8301b32aa2/src/main/java/util/MedianFilter.java). Spot detection was performed using RS-FISH (Bahry et al., 2022) with the following detection settings: -i0 0, -i1 65535, -a 0.650, -r 1, -s 1.09, -t 0.001, -sr 2, -ir 0.3, -e 0.5116, -it 33000, -bg 0. 
 
 
 Spots were filtered using binary masks to exclude spots found from neighboring embryos using the Mask filtering option in RS-FISH with masks created using Stardist as described above. [Filtering and Normalization](https://github.com/PreibischLab/RS-FISH/blob/master/src/main/java/corrections/MaskFiltering.java)
