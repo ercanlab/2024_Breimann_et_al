@@ -75,11 +75,11 @@ Spots were filtered using binary masks to exclude spots found from neighboring e
 Computation was performed in parallel on the cluster and using AWS (Amazon Web Services). 
 
 
-To correct for z-dependent signal loss, a quadratic function was fitted to the detected spots and used to correct the spot intensity throughout the embryo. [Z correction](https://github.com/PreibischLab/RS-FISH/blob/master/src/main/java/corrections/ZCorrection.java)
+To correct for z-dependent signal loss, a quadratic function was fitted to the detected spots and used to correct the spot intensity throughout the embryo. [Z correction](https://github.com/PreibischLab/RS-FISH/blob/9f99b29e61ceba594b184a881c9fae8301b32aa2/src/main/java/corrections/MaskFiltering.java)
 
 
 
-A gamma function was fitted to the histogram of all found detections, and the maximum of the curve was set to 1 to normalize intensity detection between different embryos in order to allow quantification of transcript numbers. 
+A gamma function was fitted to the histogram of all found detections, and the maximum of the curve was set to 1 to normalize intensity detection between different embryos in order to allow quantification of transcript numbers. [Gamma function](https://github.com/PreibischLab/RS-FISH/blob/master/src/main/java/corrections/ZCorrection.java)
 
 
 
