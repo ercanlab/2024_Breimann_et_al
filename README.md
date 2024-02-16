@@ -91,8 +91,7 @@ A gamma function was fitted to the histogram of all found detections, and the ma
 
 ### 5. Plotting and statistical analysis
 
-[Preparing data for plotting]()
-[Plotting and statistical test]()
+Example scripts for plotting the data and performing the T-test can be found here: [Plotting and statistical test](https://github.com/ercanlab/2024_Breimann_et_al/tree/main/scripts/plotting)
 
 <br />
 <br />
