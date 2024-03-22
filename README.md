@@ -55,12 +55,11 @@ Single fields of view contained several embryos, which were segmented for downst
 Classification of different embryos into selected age bins was done by training an autoencoder for stage prediction. The developmental bins used for staging (1-4, 5-30, 31-99, 100-149, 150-534, 535-558) were a compromise, selected based on biological meaning and classification prediction capability. All images (training set and full dataset) were preprocessed before training and classification, 250 were withheld for validation. 3D DAPI channel images were first masked for each embryo, then the 21 central slices were extracted, pixel intensities were normalized using only non-zero values. Then, slightly modified copies were generated using small shifts, flips, rotations, shear, and brightness changes (augmentation). From those copies, 750 2D tiles of size 64x64 were extracted from different image regions for each embryo. 
 First, an autoencoder was trained to learn a latent representation of the image in the encoder part. For this, the input and output layers were the same during training. The autoencoder loss was mean squared error and the chosen optimizer Adam. The pre-trained encoder part was coupled with a classifier part to predict embryo stages in the next step, where the output layer is the softmax of the stage bins. This new network is initially trained with frozen encoder weights, then finally tuned by training the full network. For the classifier loss, we choose cross entropy with and the optimizer Adam. 
 
-Autoencoder training: [Script]()
+Autoencoder training: [Script](https://github.com/ercanlab/2024_Breimann_et_al/blob/main/scripts/analysis/nuclei_bin_train.py)
 
 
 A training dataset was annotated using a custom-written ImageJ macro. We annotated ~100 embryos with this approach, but we had a strong class imbalance due to the initial random sampling of embryos. However, using the initial prediction in an active learning approach (the user is asked to provide further training data if prediction performance is bad for specific cases), we avoided random sampling in further iterations and thus annotated specific stages with previously fewer examples to even out the classes. 
 
-Model file: [Script]()
 
 A stage was predicted for each 64x64 tile of an embryo image, and the final stage for each embryo was determined by a majority vote of all tiles.
 
