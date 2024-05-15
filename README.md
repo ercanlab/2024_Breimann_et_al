@@ -13,9 +13,9 @@ bioRxiv: _link_ ; doi:
 
 <br /> 
 
-All embryo images can be downloaded from [here](https://data.janelia.org/3Mq4F)
+The complete raw imaging data can be found [here](https://data.janelia.org/3Mq4F). Images are split into subfolders of genotypes N2 (wild-type), CB428 (dpy-21 (e428), SEA-12 (ERC41 (ers8[delX:4394846-4396180]))) or RNAi treatment (sdc-2 (C35C5.1), dpy-27 (R13G10.1), ama-1 (F36A4.7), ev (empty-vector), rluc (Renilla luciferase)). Additionally, the embryo masks are provided in the file mask.zip. The manual annotation of the embryo stage and the image tiles used in the autoencoder's training can be found in the manual_count.txt and tiles.zip, respectively. 
 
-
+<br />
 
 ### Content
 
@@ -34,7 +34,7 @@ All embryo images can be downloaded from [here](https://data.janelia.org/3Mq4F)
 </a> 
 
 <br />
-Regulation of transcription during embryogenesis is key to development and differentiation. To study transcript expression throughout Caenorhabditis elegans embryogenesis at single-molecule resolution, we developed a high-throughput single-molecule fluorescence in situ hybridization (smFISH) method that relies on computational methods to developmentally stage embryos and quantify individual mRNA molecules in single embryos. We applied our system to sdc-2, a zygotically transcribed gene essential for hermaphrodite development and dosage compensation. We found that sdc-2 is rapidly activated during early embryogenesis by increasing both the number of mRNAs produced per transcription site and the frequency of sites engaged in transcription. Knockdown of sdc-2 and dpy-27, a subunit of the dosage compensation complex (DCC), increased the frequency of active transcription sites for the X chromosomal gene dpy-23 but not the autosomal gene mdh-1. The temporal resolution from in silico staging of embryos showed that the deletion of a single DCC recruitment element near the dpy-23 gene causes higher dpy-23 mRNA expression after the start of dosage compensation, which could not be resolved using mRNAseq from mixed-stage embryos. In summary, we have established a computational approach to quantify temporal regulation of transcription throughout C. elegans embryogenesis and demonstrated its potential to provide new insights into developmental gene regulation. 
+Regulation of transcription during embryogenesis is key to development and differentiation. To study transcript expression throughout Caenorhabditis elegans embryogenesis at single-molecule resolution, we developed a high-throughput single-molecule fluorescence in situ hybridization (smFISH) method that relies on computational methods to developmentally stage embryos and quantify individual mRNA molecules in single embryos. We applied our system to sdc-2, a zygotically transcribed gene essential for hermaphrodite development and dosage compensation. We found that sdc-2 is rapidly activated during early embryogenesis by increasing both the number of mRNAs produced per transcription site and the frequency of sites engaged in transcription. Knockdown of sdc-2 and dpy-27, a subunit of the dosage compensation complex (DCC), increased the number of active transcription sites for the X chromosomal gene dpy-23 but not the autosomal gene mdh-1, suggesting that the DCC reduces the frequency of dpy-23 transcription. The temporal resolution from in silico staging of embryos showed that the deletion of a single DCC recruitment element near the dpy-23 gene causes higher dpy-23 mRNA expression after the start of dosage compensation, which could not be resolved using mRNAseq from mixed-stage embryos. In summary, we have established a computational approach to quantify temporal regulation of transcription throughout C. elegans embryogenesis and demonstrated its potential to provide new insights into developmental gene regulation. 
 <br />
 
 
