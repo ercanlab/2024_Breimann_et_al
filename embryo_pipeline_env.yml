@@ -1,0 +1,21 @@
+name: embryo-pipeline
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - numpy
+  - pandas
+  - openjdk=11
+  - maven
+  - pyimagej
+  - scikit-image
+  - scikit-learn
+  - tifffile
+  -# pims
+  -# pims_nd2
+  - tensorflow=2.9.0
+  - keras=2.9.0
+  - pip:
+    - stardist
