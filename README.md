@@ -41,6 +41,11 @@ Regulation of transcription during embryogenesis is key to development and diffe
 
 ### 2. Install instructions to run the example dataset <a name="install">
 
+Requirements: 
+- Windows
+- 
+
+
 1. **Create the Conda Environment**
 
    From your terminal, navigate to the directory containing the `embryo_pipeline_env.yml` file, then run:
