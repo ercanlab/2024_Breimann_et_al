@@ -13,9 +13,9 @@ dependencies:
   - scikit-image
   - scikit-learn
   - tifffile
-  -# pims
-  -# pims_nd2
-  - tensorflow=2.9.0
-  - keras=2.9.0
+  - pims
+  - tensorflow=2.9
+  - keras=2.9
   - pip:
     - stardist
+    - pims_nd2
