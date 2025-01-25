@@ -180,14 +180,15 @@ def make_final_tifs_and_preview(
         fish_im2 = make_meanproj(embryo_tif, 2)
 
         preview_im = np.zeros((fish_im0.shape[0]*2, fish_im0.shape[1]*2), dtype=np.float32)
-        preview_im[:fish_im0.shape[0], :fish_im0.shape[1]] = dapi_im
-        preview_im[:fish_im0.shape[0], fish_im0.shape[1]:] = embryo_mask / 255.0
-        preview_im[fish_im0.shape[0]:, :fish_im0.shape[1]] = fish_im0
-        preview_im[fish_im0.shape[0]:, fish_im0.shape[1]:] = fish_im2
+        preview_uint8 = (preview_im * 255).astype(np.uint8)
+        preview_uint8[:fish_im0.shape[0], :fish_im0.shape[1]] = dapi_im
+        preview_uint8[:fish_im0.shape[0], fish_im0.shape[1]:] = embryo_mask #/ 255.0
+        preview_uint8[fish_im0.shape[0]:, :fish_im0.shape[1]] = fish_im0
+        preview_uint8[fish_im0.shape[0]:, fish_im0.shape[1]:] = fish_im2
 
         # Save preview .png
         preview_png_path = os.path.join(dir_preview, f'{embryo_name[:-4]}.png')
-        io.imsave(preview_png_path, preview_im)
+        io.imsave(preview_png_path, preview_uint8)
         os.chmod(preview_png_path, 0o664)
 
         # Make median-filtered subtractions in finaldata/medians
@@ -261,8 +262,9 @@ def run_make_masked_embryos_and_previews(
             return
 
     npzfile = np.load(predicted_npz_path)
-    labels_images = npzfile['arr_0']
-    gfp_images_names = list(npzfile['arr_1'])
+    labels_images = npzfile['labels']       # was npzfile['arr_0']
+    gfp_images_names = list(npzfile['names'])  # was npzfile['arr_1']
+
 
     # 4) Find bounding boxes of each label
     logging.info("Finding bounding boxes for predicted label masks...")
@@ -322,7 +324,8 @@ def run_make_masked_embryos_and_previews(
             idx_orig = csv_file[csv_file['filename'] == im_name].index
             csv_file.drop(idx_orig, inplace=True)
             # Append new rows
-            csv_file = csv_file.append(im_df, ignore_index=True)
+            csv_file = pd.concat([csv_file, im_df], ignore_index=True)
+
 
         else:
             # If no embryos found, set status to -2
@@ -359,7 +362,7 @@ def run_make_masked_embryos_and_previews(
 
     # 7) Remove the NPZ file
     logging.info(f"Removing NPZ file {predicted_npz_path}.")
-    os.remove(predicted_npz_path)
+    #os.remove(predicted_npz_path)
 
     # 8) Check for permission errors in the log
     if log_file_path and os.path.exists(log_file_path):
