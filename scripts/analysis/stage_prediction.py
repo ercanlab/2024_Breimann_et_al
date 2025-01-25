@@ -9,6 +9,7 @@ import tifffile as tif
 from glob import glob
 from skimage.transform import resize
 from keras.models import load_model
+from keras import losses
 from keras.preprocessing.image import ImageDataGenerator
 
 ##############################################################################
@@ -68,7 +69,7 @@ def make_tiles(
     ims_names, 
     masked_cropped_20slices_dapi_normed_path, 
     embryos_normed_path,
-    tile_size=64,
+    tile_size=128,
     n_augment_slices=5,
     batch_size=20
 ):
@@ -84,16 +85,29 @@ def make_tiles(
     :param batch_size: Batch size for the Keras ImageDataGenerator.
     """
     # Define data augmentation
+    # data_gen_args = dict(
+    #     horizontal_flip=True,
+    #     vertical_flip=True,
+    #     rotation_range=180,
+    #     shear_range=5,
+    #     brightness_range=[0.85, 1],
+    #     fill_mode='constant',
+    #     cval=0,
+    #     rescale=1./255.
+    # )
+
     data_gen_args = dict(
-        horizontal_flip=True,
-        vertical_flip=True,
-        rotation_range=180,
-        shear_range=5,
-        brightness_range=[0.85, 1],
-        fill_mode='constant',
-        cval=0,
-        rescale=1./255.
-    )
+    # no flips, no rotation, no shear
+    horizontal_flip=False,
+    vertical_flip=False,
+    rotation_range=0,
+    shear_range=0,
+    brightness_range=None,
+    fill_mode='constant',  # or reflect
+    cval=0,
+    rescale=1./255.
+)
+
     datagen = ImageDataGenerator(**data_gen_args)
 
     for im_name in ims_names:
@@ -108,12 +122,14 @@ def make_tiles(
 
         # Load normalized 3D stack
         im_3d = tif.imread(in_path)  # shape: (Z, Y, X)
+        logging.debug(f"shape of im3d {im_3d.shape}")
         im_tiles = []
 
         # Keras expects a 4D tensor for 2D images: (Z, Y, X, channels).
         # We'll treat each Z-slice as a separate "image".
         # shape after reshape: (Z, Y, X, 1)
         im_4d = im_3d[..., np.newaxis]  # add a channel dimension
+        logging.debug(f"shape of im4d {im_4d.shape}")
         it = datagen.flow(im_4d, batch_size=batch_size)
 
         # We'll gather augmented slices from the generator
@@ -132,14 +148,22 @@ def make_tiles(
                         ]
                         # tile shape: (tile_size, tile_size, 1), if it fits fully
                         if tile.shape == (tile_size, tile_size, 1):
+                            #logging.info(f"Number of tiles {len(tile)}")
                             # Keep tile if it isn't mostly zeros
                             n_zeros = np.count_nonzero(tile == 0)
+                            logging.info(
+                                f"Tile at i={i}, j={j}: shape={tile.shape}, n_zeros={n_zeros}, "
+                                f"tile_size={tile.size}, keep={n_zeros*7 < tile.size}"
+                            )
+
                             # E.g., discard tile if more than ~14% is zero (adjust logic as needed):
-                            if n_zeros * 7 < tile.size:
+                            if n_zeros * 7 < tile.size: 
                                 im_tiles.append(tile)
+                                
 
         # Convert to numpy array, shape: (N, tile_size, tile_size, 1)
         im_tiles = np.asarray(im_tiles, dtype=np.float32)
+        logging.info(f"Number of tiles at the end{len(im_tiles)}")
         if im_tiles.size > 0:
             tif.imsave(out_path, im_tiles)
             os.chmod(out_path, 0o664)
@@ -350,7 +374,11 @@ def run_stage_prediction(
         logging.error("No stage prediction model provided; cannot proceed.")
         return
 
-    model = load_model(stage_prediction_model_and_weights_path)
+    model = load_model(stage_prediction_model_and_weights_path,
+    custom_objects={
+        'cosine_proximity': lambda y_true, y_pred: -tf.keras.losses.cosine_similarity(y_true, y_pred, axis=-1)
+    }
+)
     predicted_probabilities = [model.predict(tiles) for tiles in all_tiles]
     logging.info("Ran predictions on tiles.")
 
