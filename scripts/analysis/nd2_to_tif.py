@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 import numpy as np
 from glob import glob
-from pims import ND2_Reader
+from pims import ND2Reader_SDK
 from skimage import io
 import tifffile as tif
 
@@ -17,7 +17,7 @@ def setup_logger(log_file_path=None, to_console=True):
     Sets up a root logger. Optionally writes to file (log_file_path) and/or to console.
     """
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     
     # Remove any existing handlers (to avoid duplication if run multiple times)
     if logger.hasHandlers():
@@ -153,18 +153,19 @@ def readND2_saveTIFF(
     Reads an ND2 file, converts it to .tif (including max-proj for the GFP channel),
     appends metadata rows to the CSV, and handles exceptions/logging.
     """
-    from pims import ND2_Reader  # to ensure ND2_Reader is locally available if needed
+    from pims import ND2Reader_SDK  # to ensure ND2_Reader is locally available if needed
 
     new_filenames = []
     nd2_basename = os.path.basename(images)
 
     try:
-        with ND2_Reader(images) as frames:
+        with ND2Reader_SDK(images) as frames:
             # Setup axes
             if 'm' in frames.axes:
                 frames.iter_axes = 'm'
             frames.bundle_axes = 'zcyx'
             meta = frames.metadata
+            
 
             # Clean any unusual chars in metadata
             if 'objective' in meta and 'λ' in meta['objective']:
@@ -203,6 +204,9 @@ def readND2_saveTIFF(
 
             # Convert all frames in the ND2
             for i, frame in enumerate(frames):
+                if frame.shape[0] == 0:
+                    logging.warning(f"{images} - found a frame with z=0. Skipping.")
+                    continue
                 condition_max = find_latest_in_condition(csv_file["filename"].dropna().tolist(), condition)
                 new_name = f'{condition}_{condition_max+1}'
 
@@ -261,13 +265,18 @@ def readND2_saveTIFF(
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    
+        # New line to show the Python line number where the error occurred
+        logging.warning(f"Line number: {exc_tb.tb_lineno}")
+    
         logging.warning(f'\nException ND2_to_tif {images}\n{e}')
         logging.warning(f'{exc_type} {exc_tb.tb_lineno}\n')
 
-        with open(failing_nd2_list_file, "a+") as f:
-            f.write(f'{nd2_basename}\n')
+        with open(failing_nd2_list_file,"a+") as f:
+            f.write(f'{os.path.basename(images)}\n')
 
     return csv_file
+
 
 
 ##############################################################################
