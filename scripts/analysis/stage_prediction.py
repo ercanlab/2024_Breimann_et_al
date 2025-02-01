@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet, modified by Laura Breimann
+
 import os
 import sys
 import math
@@ -16,7 +18,7 @@ from keras.preprocessing.image import ImageDataGenerator
 #                           LOGGER SETUP FUNCTION                             #
 ##############################################################################
 
-def setup_logger(log_file_path=None, to_console=True):
+def setup_logger(log_file_path=None, to_console=False):
     """
     Sets up a root logger. Optionally writes to file (log_file_path) and/or to console.
     """
@@ -84,25 +86,13 @@ def make_tiles(
     :param n_augment_slices: How many times to draw from the ImageDataGenerator (for augmentation).
     :param batch_size: Batch size for the Keras ImageDataGenerator.
     """
-    # Define data augmentation
-    # data_gen_args = dict(
-    #     horizontal_flip=True,
-    #     vertical_flip=True,
-    #     rotation_range=180,
-    #     shear_range=5,
-    #     brightness_range=[0.85, 1],
-    #     fill_mode='constant',
-    #     cval=0,
-    #     rescale=1./255.
-    # )
-
+    # Define data augmentation parameters
     data_gen_args = dict(
-    # no flips, no rotation, no shear
-    horizontal_flip=False,
-    vertical_flip=False,
-    rotation_range=0,
-    shear_range=0,
-    brightness_range=None,
+    horizontal_flip=True,
+    vertical_flip=True,
+    rotation_range=180,
+    shear_range=5,
+    brightness_range=None, # or [0.85, 1],
     fill_mode='constant',  # or reflect
     cval=0,
     rescale=1./255.
