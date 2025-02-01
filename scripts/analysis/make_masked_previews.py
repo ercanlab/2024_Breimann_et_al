@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet, modified by Laura Breimann
+
 import os
 import sys
 import logging
@@ -27,7 +29,7 @@ def setup_logger(log_file_path=None, to_console=True):
     # Stream handler to console
     if to_console:
         handler_console = logging.StreamHandler(sys.stdout)
-        handler_console.setLevel(logging.DEBUG)
+        handler_console.setLevel(logging.INFO)
         formatter_console = logging.Formatter('%(asctime)s - %(levelname)s - %(lineno)s - %(message)s')
         handler_console.setFormatter(formatter_console)
         logger.addHandler(handler_console)
@@ -180,14 +182,33 @@ def make_final_tifs_and_preview(
         fish_im2 = make_meanproj(embryo_tif, 2)
 
         preview_im = np.zeros((fish_im0.shape[0]*2, fish_im0.shape[1]*2), dtype=np.float32)
-        preview_uint8 = (preview_im * 255).astype(np.uint8)
-        preview_uint8[:fish_im0.shape[0], :fish_im0.shape[1]] = dapi_im
-        preview_uint8[:fish_im0.shape[0], fish_im0.shape[1]:] = embryo_mask #/ 255.0
-        preview_uint8[fish_im0.shape[0]:, :fish_im0.shape[1]] = fish_im0
-        preview_uint8[fish_im0.shape[0]:, fish_im0.shape[1]:] = fish_im2
 
-        # Save preview .png
+        # Fill the four quadrants
+        preview_im[:fish_im0.shape[0], :fish_im0.shape[1]] = dapi_im
+        preview_im[:fish_im0.shape[0], fish_im0.shape[1]:] = embryo_mask / 255.0
+        preview_im[fish_im0.shape[0]:, :fish_im0.shape[1]] = fish_im0
+        preview_im[fish_im0.shape[0]:, fish_im0.shape[1]:] = fish_im2
+
+        # Convert float image -> 8-bit PNG with robust rescaling
         preview_png_path = os.path.join(dir_preview, f'{embryo_name[:-4]}.png')
+
+        # Compute 2nd and 98th percentile to avoid outliers dominating the range
+        p2, p98 = np.percentile(preview_im, (2, 98))
+
+        if p2 < p98:
+            # Rescale intensities from [p2..p98] -> [0..255]
+            preview_rescaled = exposure.rescale_intensity(
+                preview_im, 
+                in_range=(p2, p98),
+                out_range=(0, 255)
+            )
+        else:
+            # if p2 == p98 or image is basically uniform
+            preview_rescaled = np.zeros_like(preview_im)
+
+        preview_uint8 = preview_rescaled.astype(np.uint8)
+
+        # Now save the 8-bit image
         io.imsave(preview_png_path, preview_uint8)
         os.chmod(preview_png_path, 0o664)
 
@@ -239,16 +260,18 @@ def run_make_masked_embryos_and_previews(
     """
     # 1) Setup logger
     setup_logger(log_file_path=log_file_path, to_console=True)
+    logging.getLogger("PIL").setLevel(logging.ERROR)
     logging.info("\n\nStarting script make_masked_embryos_and_previews\n *********************************************")
 
     # 2) Create output directories (clean or ensure they exist)
     os.makedirs(dir_preview, exist_ok=True)
-    if os.path.exists(dir_path_finaldata):
-        shutil.rmtree(dir_path_finaldata, ignore_errors=True)
-    os.makedirs(dir_path_finaldata, mode=0o777)
-    os.makedirs(os.path.join(dir_path_finaldata, 'tifs'), mode=0o777)
-    os.makedirs(os.path.join(dir_path_finaldata, 'masks'), mode=0o777)
-    os.makedirs(os.path.join(dir_path_finaldata, 'medians'), mode=0o777)
+    #if os.path.exists(dir_path_finaldata):
+    #    shutil.rmtree(dir_path_finaldata, ignore_errors=True)
+    os.makedirs(dir_path_finaldata, mode=0o777,exist_ok=True)
+    os.makedirs(os.path.join(dir_path_finaldata, 'tifs'), mode=0o777, exist_ok=True)
+    os.makedirs(os.path.join(dir_path_finaldata, 'masks'), mode=0o777, exist_ok=True)
+    os.makedirs(os.path.join(dir_path_finaldata, 'medians'), mode=0o777, exist_ok=True)
+    os.makedirs(dir_dapi, mode=0o777,exist_ok=True)
 
     # 3) Load the predicted images from NPZ
     logging.info(f"Loading NPZ predictions from {predicted_npz_path}")
@@ -293,6 +316,8 @@ def run_make_masked_embryos_and_previews(
         embryo_labels_first_Ys_Xs_last_Ys_Xs.append(im_firsts_lasts)
         images_unique_labels.append(unique_labels)
 
+        logging.info("Creating final data images and previews for each embryo row...")
+
     # 5) Update the CSV with new rows for each embryo
     logging.info("Updating CSV to add cropped embryo rows.")
     csv_file = pd.read_csv(csv_path)
@@ -300,8 +325,14 @@ def run_make_masked_embryos_and_previews(
 
     for i, im_name in enumerate(gfp_images_names):
         im_row = csv_file[csv_file['filename'] == im_name]
+        
+        # If the CSV already has duplicates or is missing this entry, skip
         if im_row.shape[0] != 1:
-            logging.warning(f"Filename {im_name} exists in DataFrame more than once or not at all.")
+            logging.warning(
+                f"Filename {im_name} exists in DataFrame {im_row.shape[0]} times. "
+                "Skipping bounding-box duplication for this file."
+            )
+            continue
 
         # How many embryos did we detect in this mask?
         n_embryos = len(embryo_labels_first_Ys_Xs_last_Ys_Xs[i])
@@ -325,7 +356,6 @@ def run_make_masked_embryos_and_previews(
             csv_file.drop(idx_orig, inplace=True)
             # Append new rows
             csv_file = pd.concat([csv_file, im_df], ignore_index=True)
-
 
         else:
             # If no embryos found, set status to -2
