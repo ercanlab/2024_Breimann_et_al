@@ -16,6 +16,9 @@ dependencies:
   - pims
   - tensorflow=2.9
   - keras=2.9
+  - jupyter           
+  - ipykernel 
   - pip:
     - stardist
     - pims_nd2
+    - olefile
