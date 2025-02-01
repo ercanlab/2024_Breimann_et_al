@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet, modified by Laura Breimann
+
 import os
 import sys
 import logging
@@ -29,7 +31,7 @@ def setup_logger(log_file_path=None, to_console=True):
     # Stream handler to console
     if to_console:
         handler_console = logging.StreamHandler(sys.stdout)
-        handler_console.setLevel(logging.DEBUG)
+        handler_console.setLevel(logging.INFO)
         formatter_console = logging.Formatter('%(asctime)s - %(levelname)s - %(lineno)s - %(message)s')
         handler_console.setFormatter(formatter_console)
         logger.addHandler(handler_console)
