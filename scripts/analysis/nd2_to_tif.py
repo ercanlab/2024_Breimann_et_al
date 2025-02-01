@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet, modified by Laura Breimann
+
 import os
 import sys
 import logging
@@ -26,7 +28,7 @@ def setup_logger(log_file_path=None, to_console=True):
     # Stream handler to console
     if to_console:
         handler_console = logging.StreamHandler(sys.stdout)
-        handler_console.setLevel(logging.DEBUG)
+        handler_console.setLevel(logging.INFO)
         formatter_console = logging.Formatter('%(asctime)s - %(levelname)s - %(lineno)s - %(message)s')
         handler_console.setFormatter(formatter_console)
         logger.addHandler(handler_console)
@@ -150,22 +152,27 @@ def readND2_saveTIFF(
     csv_path
 ):
     """
-    Reads an ND2 file, converts it to .tif (including max-proj for the GFP channel),
+    Reads an ND2 file (with potential multiple positions), converts each position
+    to .tif (including max-proj for the GFP channel),
     appends metadata rows to the CSV, and handles exceptions/logging.
     """
-    from pims import ND2Reader_SDK  # to ensure ND2_Reader is locally available if needed
+    from pims import ND2Reader_SDK
 
     new_filenames = []
     nd2_basename = os.path.basename(images)
 
     try:
-        with ND2Reader_SDK(images) as frames:
-            # Setup axes
-            if 'm' in frames.axes:
-                frames.iter_axes = 'm'
-            frames.bundle_axes = 'zcyx'
-            meta = frames.metadata
-            
+        with ND2Reader_SDK(images) as nd2:
+            # We want a single 4D array: (z, c, y, x) each time we read.
+            nd2.bundle_axes = 'zcyx'
+            # If no time dimension, you can set iter_axes = 'none' or 't';
+            # but let's keep it simple if there's no time:
+            if 't' in nd2.axes:
+                nd2.iter_axes = 't'
+            else:
+                nd2.iter_axes = ''
+
+            meta = nd2.metadata
 
             # Clean any unusual chars in metadata
             if 'objective' in meta and 'λ' in meta['objective']:
@@ -174,78 +181,91 @@ def readND2_saveTIFF(
             # Get channel info
             channels_names, channels_emission_n = get_channels_info(meta)
 
-            # skip if fewer than 4 channels or something unexpected
+            # skip if fewer than 4 channels
             if channels_names[3] == "" or "5" in channels_names:
-                logging.info(f'Skipping file (missing channels) - {images}')
+                logging.info(f"Skipping file (missing channels) - {images}")
                 with open(failing_nd2_list_file, "a+") as f:
-                    f.write(f'{nd2_basename}\n')
+                    f.write(f"{nd2_basename}\n")
                 return csv_file
 
             # Indices for DAPI and GFP
             dapi_num = get_channel_num(channels_names, 'dapi_andor')
             gfp_num = get_channel_num(channels_names, 'gfp_andor')
-
             if dapi_num == -1 or gfp_num == -1:
-                logging.info(f'Skipping file (no dapi/gfp channel) - {images}')
+                logging.info(f"Skipping file (no dapi/gfp channel) - {images}")
                 with open(failing_nd2_list_file, "a+") as f:
-                    f.write(f'{nd2_basename}\n')
+                    f.write(f"{nd2_basename}\n")
                 return csv_file
 
-            # Derive "condition" from filename (example logic below, adjust as needed)
+            # Determine "condition" from ND2 filename
             if "rnai" in nd2_basename.lower():
-                # e.g. Something like: "mySample_RNAi_something"
-                # Start indexing from something like "RNAi_[...]" 
-                # Adjust the slice accordingly to your naming convention
                 condition = f"RNAi_{nd2_basename.split('_')[2][5:]}"
             else:
-                # Default: second token = condition
-                # e.g. "prefix_CONDITION_something.nd2"
-                condition = nd2_basename.split("_")[1].upper()
+                parts = nd2_basename.split("_")
+                condition = parts[1].upper() if len(parts) > 1 else nd2_basename
 
-            # Convert all frames in the ND2
-            for i, frame in enumerate(frames):
-                if frame.shape[0] == 0:
-                    logging.warning(f"{images} - found a frame with z=0. Skipping.")
+            # If there's a 'm' dimension => multiple positions
+            # If not, we assume 1 position
+            n_positions = nd2.sizes.get('m', 1)
+
+            # We'll loop over each position manually
+            for pos_index in range(n_positions):
+                nd2.default_coords['m'] = pos_index
+
+                # Attempt to read a single 4D stack from this position
+                try:
+                    frame_4d = nd2[0]  # shape: (z, c, y, x)
+                except ZeroDivisionError:
+                    logging.warning(
+                        f"{images} - position {pos_index} triggered ZeroDivisionError; skipping."
+                    )
                     continue
-                condition_max = find_latest_in_condition(csv_file["filename"].dropna().tolist(), condition)
-                new_name = f'{condition}_{condition_max+1}'
+
+                # If shape is (z=0, c,y,x), skip
+                if frame_4d.shape[0] == 0:
+                    logging.warning(
+                        f"{images} - position {pos_index} has z=0 dimension; skipping."
+                    )
+                    continue
+
+                # If shape is (z, c=0, y, x) => skip, etc., but less likely
+                # Check for mismatch dimension if needed
 
                 # If shape is (z, c, y, x) but channel <-> y mismatch, adjust
-                if frame.shape[1] > frame.shape[3]:
-                    frame = np.swapaxes(frame, 1, 3)
+                if frame_4d.shape[1] > frame_4d.shape[3]:
+                    frame_4d = np.swapaxes(frame_4d, 1, 3)
+
+                # Generate new TIF name
+                condition_max = find_latest_in_condition(csv_file["filename"].dropna().tolist(), condition)
+                new_name = f"{condition}_{condition_max+1}.tif"
+                full_out_stack_path = os.path.join(output_path, new_name)
 
                 # Save the entire stack as TIF
-                out_stack_name = f'{new_name}.tif'
-                full_out_stack_path = os.path.join(output_path, out_stack_name)
-                tif.imsave(full_out_stack_path, frame, imagej=True, metadata=meta)
+                tif.imsave(full_out_stack_path, frame_4d, imagej=True, metadata=meta)
                 os.chmod(full_out_stack_path, 0o664)
 
-                # Make a note of the original filename (ND2 + series)
-                original_filename = f'{nd2_basename[:-4]} series{i+1}'
+                # Make a note of the original position
+                original_filename = f"{nd2_basename[:-4]} series{pos_index+1}"
+               
 
                 # Create a new row in the CSV
                 new_row = {
                     "original filename": [original_filename],
-                    "filename": [new_name]
+                    "filename": [new_name[:-4]]  # without .tif extension
                 }
-
-                # Make GFP max proj and save
-                make_maxproj(frame, out_stack_name, gfp_num, dir_path_maxp_gfp)
-
-                # Concatenate to CSV
                 df = pd.DataFrame(new_row)
                 csv_file = pd.concat([csv_file, df], ignore_index=True)
 
-                new_filenames.append(new_name)
-                z_size = frame.shape[0]
+                new_filenames.append(new_name[:-4])
+                z_size = frame_4d.shape[0]
 
-                logging.info(f'Success nd2_to_tif {original_filename}')
+                # Create a max-projection of GFP channel
+                make_maxproj(frame_4d, new_name, gfp_num, dir_path_maxp_gfp)
 
-        # After finishing reading all frames
-        frames.close()
+                logging.info(f"Success nd2_to_tif {original_filename}")
 
-        # Remove the ND2 file to save space
-        os.remove(images)
+        # After finishing reading all positions
+        os.remove(images)  # remove ND2 if desired
 
         # Fill additional columns in CSV
         csv_file = fill_additional_df_cols(
@@ -258,24 +278,19 @@ def readND2_saveTIFF(
             z_size, 
             nd2_basename
         )
-
-        # Update CSV on disk
         csv_file.to_csv(csv_path, index=False)
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-    
-        # New line to show the Python line number where the error occurred
-        logging.warning(f"Line number: {exc_tb.tb_lineno}")
-    
-        logging.warning(f'\nException ND2_to_tif {images}\n{e}')
-        logging.warning(f'{exc_type} {exc_tb.tb_lineno}\n')
+        logging.warning(f"\nException ND2_to_tif {images}\n{e}")
+        logging.warning(f"{exc_type} {exc_tb.tb_lineno}\n")
 
-        with open(failing_nd2_list_file,"a+") as f:
-            f.write(f'{os.path.basename(images)}\n')
+        with open(failing_nd2_list_file, "a+") as f:
+            f.write(f"{nd2_basename}\n")
 
     return csv_file
+
 
 
 
