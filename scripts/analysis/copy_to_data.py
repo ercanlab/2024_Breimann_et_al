@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet, modified by Laura Breimann
+
 import os
 import sys
 import logging
