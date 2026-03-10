@@ -1,3 +1,5 @@
+### Original code from Ella Bahry @bellonet
+
 from keras.layers import Conv2D, Conv2DTranspose, MaxPooling2D, UpSampling2D, Input, Flatten, Dense, BatchNormalization, Dropout
 from keras.models import Model
 from keras import optimizers
